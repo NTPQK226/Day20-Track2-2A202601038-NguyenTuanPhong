@@ -6,9 +6,10 @@
 >
 > `make verify` sẽ fail nếu còn placeholder chưa điền. Đó là cố ý.
 
-**Họ Tên:** _<Họ Tên>_
-**Cohort:** _<A20-K1 / A20-K2 / ...>_
-**Ngày submit:** _<YYYY-MM-DD>_
+**Họ Tên:** _Nguyễn Tuấn Phong_
+**MSSV:** _2A202601038_
+**Cohort:** _A20-K3B_
+**Ngày submit:** _2026/08/20_
 
 ---
 
@@ -16,23 +17,19 @@
 
 > Từ `make probe`. Paste output hoặc điền tay.
 
-- **OS:** _<macOS 14 / Windows 11 / Ubuntu 24.04 / ...>_
-- **CPU:** _<Apple M2 / Intel i7-12700H / AMD Ryzen 7 5800H>_
-- **Cores:** _<physical / logical>_
-- **CPU extensions:** _<AVX2 / AVX-512 / NEON / —>_
-- **RAM:** _<GB>_
-- **Accelerator:** _<NVIDIA RTX 4060 / Apple Metal / Vulkan / CPU only>_
-- **llama.cpp asset đã tải:** _<vd: llama-b10488-bin-macos-arm64.tar.gz>_
-- **Model đã dùng:** _<Gemma 4 E2B / Qwen3.5 0.8B>_ (`LAB_MODEL=`_<gemma4-e2b / qwen35-0.8b>_)
-- **Quantization:** _<primary>_ + _<compare>_ (từ `models/active.json`)
+- **OS:** Windows 11 (AMD64)
+- **CPU:** 12th Gen Intel(R) Core(TM) i5-12500H
+- **Cores:** 12 physical / 16 logical cores
+- **CPU extensions:** AVX2 / FMA
+- **RAM:** 15.7 GB
+- **Accelerator:** NVIDIA GeForce RTX 3050 Ti Laptop GPU (4096 MiB) + Vulkan
+- **llama.cpp asset đã tải:** llama-b10488-bin-win-cuda-12.4-x64.zip
+- **Model đã dùng:** Gemma 4 E2B (`LAB_MODEL=gemma4-e2b`)
+- **Quantization:** UD-Q4_K_XL (2.97 GB) + UD-Q2_K_XL (2.24 GB) (từ `models/active.json`)
 
-**Chạy ở đâu:** _<laptop của tôi / Colab / Kaggle>_
-_(Nếu dùng cloud fallback: nói rõ vì sao — RAM < 8 GB, setup fail, v.v. Không mất điểm.)_
+**Chạy ở đâu:** laptop của tôi
 
-**Setup story** (≤ 80 chữ): điều gì cần thay đổi để lab chạy trên máy bạn? Có bước
-nào fail rồi phải workaround không?
-
-_Answer here._
+**Setup story** (≤ 80 chữ): Khởi tạo môi trường ảo bằng Python 3.12 chuẩn Windows, chuyển đường dẫn cache HF_HOME và PIP_CACHE_DIR sang ổ D để bảo vệ dung lượng ổ C. Hệ thống tự động tải prebuilt binary llama.cpp tích hợp CUDA 12.4 và 2 bản quantization Gemma 4 E2B.
 
 ---
 
@@ -42,14 +39,10 @@ _Answer here._
 
 | Quantization | Size (GB) | Load (ms) | TTFT P50/P95 (ms) | TPOT P50/P95 (ms) | E2E P50/P95/P99 (ms) | Decode (tok/s) |
 |---|--:|--:|--:|--:|--:|--:|
-| UD-Q4_K_XL | | | | | | |
-| UD-Q2_K_XL | | | | | | |
+| UD-Q4_K_XL | 2.97 | 9713 | 327 / 760 | 12.9 / 13.3 | 1136 / 1584 / 1584 | 77.2 |
+| UD-Q2_K_XL | 2.24 | 7635 | 321 / 633 | 12.2 / 12.4 | 1092 / 1411 / 1411 | 81.7 |
 
-**Quan sát** (≤ 60 chữ): 2-bit nhanh hơn bao nhiêu, và **có đáng không**? Bạn đã thử
-hỏi cùng một câu trên cả hai (`make serve` vs `.venv/bin/python labs/02-serve/serve.py --compare`)
-chưa? Chất lượng khác nhau thế nào?
-
-_Answer here._
+**Quan sát** (≤ 60 chữ): Bản 2-bit decode nhanh hơn 1.06x và nhẹ hơn 0.73 GB. Thử nghiệm đối chứng cùng một prompt cho thấy 4-bit vượt trội về độ chính xác và chiều sâu ngữ nghĩa. Do model 4-bit nằm vừa vặn trong 4GB VRAM của RTX 3050 Ti, việc giữ bản 4-bit là tối ưu nhất.
 
 ---
 
@@ -110,22 +103,19 @@ _Answer here._
 > một before/after thật (`benchmarks/01-tuning-tg128.md`). Đổi quantization,
 > `LAB_N_CTX`, hay `--parallel` rồi đo lại cũng được.
 
-**Change:** _<vd: hạ -t từ 16 xuống 8; vd: đổi sang UD-Q2_K_XL; vd: --parallel 4 → 8>_
+**Change:** Tối ưu số lượng CPU worker threads từ mặc định physical cores (-t 12) xuống điểm ngọt (-t 6) khi kết hợp offload GPU toàn phần (ngl=99)
 
 ```
-before:  <số + đơn vị>
-after:   <số + đơn vị>
-speedup: <X.Y>×
+before:  84.0 tok/s (-t 12)
+after:   85.3 tok/s (-t 6)
+speedup: 1.02x
 ```
 
 **Tại sao nó work** (1–2 đoạn — đây là phần grader đọc kỹ nhất):
 
-_Giải thích như đang nói với bạn ngồi cạnh. Bám vào **cơ chế**, không phải "vibes":
-memory bandwidth? vector width? cache residency? scheduling? queueing? Nếu kết quả
-**khác** với kỳ vọng từ deck — nói rõ, và giải thích vì sao. Grader thưởng điểm cho
-lập luận đúng về một kết quả bất ngờ, hơn là một con số đẹp không được giải thích._
+Khi offload toàn bộ 100% layer của Gemma 4 E2B vào 4GB VRAM của card đồ hoạ rời NVIDIA GeForce RTX 3050 Ti (ngl=99), toàn bộ quá trình tính toán ma trận trong pha decode bị giới hạn bởi băng thông bộ nhớ VRAM của GPU (GPU Memory Bandwidth Bound). CPU lúc này đóng vai trò host scheduling để launch các CUDA kernels và điều phối token stream.
 
-_Answer here._
+Việc thiết lập -t 6 đạt tốc độ cao nhất (85.3 tok/s) vì khớp hoàn hảo với cụm 4 nhân hiệu năng cao (P-cores) của chip Intel Core i5-12500H, tránh phân bổ công việc sang các nhân tiết kiệm điện (E-cores) xung nhịp thấp hơn. Khi tăng thread lên -t 12 hay -t 16, overhead chuyển đổi ngữ cảnh (context switching) và đồng bộ hoá threadpool tăng lên khiến throughput giảm nhẹ về 84.0 tok/s.
 
 ---
 
