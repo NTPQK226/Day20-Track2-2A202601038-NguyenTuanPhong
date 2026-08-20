@@ -52,22 +52,17 @@
 
 | Users | RPS | P50 (ms) | P95 (ms) | P99 (ms) | Eff. concurrency | Failures |
 |--:|--:|--:|--:|--:|--:|--:|
-| 10 | | | | | | |
-| 50 | | | | | | |
+| 10 | 2.97 | 2300 | 3800 | 5100 | 7.3 | 0.0% |
+| 50 | 2.91 | 15000 | 17000 | 17000 | 40.5 | 0.0% |
 
-- **Offered load tăng 5×, throughput thực tăng:** _<X.XX>×_
-- **P95 tăng:** _<X.XX>×_
-- **Effective concurrency ở 50 users:** _<số>_ so với `--parallel` = _<số>_ slots
+- **Offered load tăng 5×, throughput thực tăng:** 0.98×
+- **P95 tăng:** 4.47×
+- **Effective concurrency ở 50 users:** 40.5 so với `--parallel` = 4 slots
 
 **Peak `llamacpp:n_busy_slots_per_decode`** (từ `make metrics` khi `make load-50` đang
-chạy): _<số>_ / _<slots>_ slots
+chạy): 3.88 / 4 slots
 
-**Saturation reading** (≤ 80 chữ): server của bạn bão hoà ở đâu, và **bằng chứng nào**
-thuyết phục bạn? Nếu P95 tăng nhanh hơn RPS thì phần latency thêm đó là queue time hay
-compute time — bạn biết bằng cách nào? Nếu bạn phải nâng goodput@SLO, bạn sẽ đổi knob
-nào **trước**, và vì sao knob đó?
-
-_Answer here._
+**Saturation reading** (≤ 80 chữ): Server bão hoà ngay trên mức 10 users và bão hoà hoàn toàn ở 50 users khi RPS đi ngang (0.98x) còn P95 phồng lên 4.47x (17.0s). Phần latency tăng thêm hoàn toàn là queue time vì requests_deferred lên tới 45 trong khi 4 slots compute đã đạt 97% công suất (3.88/4). Để nâng Goodput@SLO (P95 <= 5s), em sẽ tăng số slot --parallel lên 8 kết hợp KV cache quantization để giải toả hàng đợi.
 
 ---
 
@@ -77,23 +72,20 @@ _Answer here._
 
 | Day | Piece | Real hay stub? |
 |---|---|---|
-| N16 Cloud/IaC | | |
-| N17 Data pipeline | | |
-| N18 Lakehouse | | |
-| N19 Vector + features | | |
+| N16 Cloud/IaC | Terraform / Cloud infra | stub |
+| N17 Data pipeline | Ingestion & ETL | stub |
+| N18 Lakehouse | Storage & Catalog | stub |
+| N19 Vector + features | Keyword overlap retrieval | stub |
 | N20 Serving | `llama-server` | real |
 
 **Latency split** (mean của 3 query, từ output của `pipeline.py`):
 
-- embed: _<ms>_
-- retrieve: _<ms>_
-- llm: _<ms>_
-- **stage chiếm nhiều nhất:** _<stage>_ (_<%>_ của total)
+- embed: 0.0 ms
+- retrieve: 0.1 ms
+- llm: 2834.1 ms
+- **stage chiếm nhiều nhất:** llm (100% của total)
 
-**Reflection** (≤ 60 chữ): bottleneck ở đâu? Có khớp với kỳ vọng của bạn không? Nếu
-phải giảm latency của pipeline này 2×, bạn sẽ tấn công vào đâu?
-
-_Answer here._
+**Reflection** (≤ 60 chữ): Stage LLM chiếm 100% latency đúng như kỳ vọng vì embed/retrieve là stub. Để giảm độ trễ pipeline 2x, tôi sẽ tập trung tối ưu stage LLM bằng Prompt Caching (giảm TTFT prefill về 0ms) và Speculative Decoding (MTP head tăng tốc decode 1.5x-2x).
 
 ---
 
