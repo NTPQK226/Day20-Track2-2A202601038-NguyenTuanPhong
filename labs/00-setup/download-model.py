@@ -29,6 +29,12 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "lib"))
 import labkit  # noqa: E402
+import os
+
+# Ensure all huggingface downloads/caches stay inside the repo on drive D
+hf_cache = labkit.repo_root() / ".hf_cache"
+os.environ["HF_HOME"] = str(hf_cache)
+os.environ["HUGGINGFACE_HUB_CACHE"] = str(hf_cache)
 
 
 def find_local(models_dir: pathlib.Path, filename: str) -> pathlib.Path | None:

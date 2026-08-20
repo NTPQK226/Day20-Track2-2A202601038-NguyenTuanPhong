@@ -1,10 +1,14 @@
 # ── Environment ──────────────────────────────────────────────
 .venv/
+.hf_cache/
+.pip_cache/
 __pycache__/
 *.pyc
 .env
 .DS_Store
-
+ANTIGRAVITY.md
+capture_terminal.ps1
+render_probe.ps1
 # ── Model weights: large, re-downloadable. ──
 # models/active.json is un-ignored because STUDENTS must commit theirs (rubric item 2):
 # their `git add -A` should pick it up without needing -f.

@@ -24,6 +24,16 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
+# Ensure UTF-8 output on Windows consoles to prevent cp1258/cp1252 UnicodeEncodeError
+if sys.platform == "win32":
+    try:
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8")
+        if hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 # Pinned llama.cpp release. Gemma 4 (architecture "gemma4", April 2026) needs a
 # build newer than that; this one is well past it. Bump deliberately, not casually.
 LLAMA_CPP_BUILD = "b10488"

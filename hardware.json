@@ -1,0 +1,48 @@
+{
+  "runtime_environment": "local",
+  "cpu": {
+    "arch": "AMD64",
+    "cores_logical": 16,
+    "model": "12th Gen Intel(R) Core(TM) i5-12500H",
+    "cores_physical": 12
+  },
+  "ram_gb": 15.7,
+  "gpu": {
+    "backends": {
+      "nvidia_cuda": true,
+      "amd_rocm": false,
+      "apple_metal": false,
+      "vulkan": true,
+      "cpu_only": false
+    },
+    "details": {
+      "nvidia": "NVIDIA GeForce RTX 3050 Ti Laptop GPU, 4096 MiB",
+      "vulkan": "device present"
+    }
+  },
+  "platform": {
+    "system": "Windows",
+    "release": "11",
+    "machine": "AMD64",
+    "python": "3.12.10"
+  },
+  "recommendation": {
+    "recommended_paths": [
+      "01-measure",
+      "02-serve",
+      "03-integrate",
+      "bonus/sweeps"
+    ],
+    "model_key": "gemma4-e2b",
+    "model_choice_reason": "enough RAM for the default model",
+    "model_label": "Gemma 4 E2B",
+    "model_repo": "unsloth/gemma-4-E2B-it-GGUF",
+    "primary_model_file": "gemma-4-E2B-it-UD-Q4_K_XL.gguf",
+    "compare_model_file": "gemma-4-E2B-it-UD-Q2_K_XL.gguf",
+    "llama_cpp_backend": "CUDA",
+    "llama_cpp_cmake_flag": "-DGGML_CUDA=ON",
+    "llama_cpp_build": "b10488",
+    "ram_sufficient": true,
+    "fallback": null
+  }
+}

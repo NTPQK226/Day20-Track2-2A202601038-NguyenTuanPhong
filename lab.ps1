@@ -1,5 +1,5 @@
 <#
-  Windows runner — the equivalent of `make <target>` for students without make.
+  Windows runner -- the equivalent of `make <target>` for students without make.
 
   Works in Windows PowerShell 5.1 (powershell.exe) and PowerShell 7+ (pwsh).
 
@@ -12,7 +12,7 @@
       .\lab.ps1 verify
 
   Every target maps 1:1 to the make target of the same name, so GUIDE.md applies
-  as written — just substitute `.\lab.ps1 x` for `make x`.
+  as written -- just substitute `.\lab.ps1 x` for `make x`.
 #>
 param(
     [Parameter(Position = 0)] [string] $Target = "help",
@@ -22,30 +22,69 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 
-$VenvPy = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
-$Port   = if ($env:LAB_SERVER_PORT) { $env:LAB_SERVER_PORT } else { '8080' }
-$SysPy  = 'python'
+$env:HF_HOME = Join-Path $PSScriptRoot '.hf_cache'
+$env:HUGGINGFACE_HUB_CACHE = Join-Path $PSScriptRoot '.hf_cache'
+$env:PIP_CACHE_DIR = Join-Path $PSScriptRoot '.pip_cache'
+
+function Get-SysPython {
+    if (Test-Path "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe") {
+        return "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe"
+    }
+    if (Test-Path "$env:LOCALAPPDATA\Programs\Python\Python313\python.exe") {
+        return "$env:LOCALAPPDATA\Programs\Python\Python313\python.exe"
+    }
+    if (Get-Command 'py' -ErrorAction SilentlyContinue) {
+        return 'py'
+    }
+    return 'python'
+}
+
+function Get-VenvPython {
+    $c1 = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
+    $c2 = Join-Path $PSScriptRoot '.venv\bin\python.exe'
+    if (Test-Path $c1) { return $c1 }
+    if (Test-Path $c2) { return $c2 }
+    return $null
+}
 
 function Need-Venv {
-    if (-not (Test-Path $VenvPy)) {
+    $vpy = Get-VenvPython
+    if (-not $vpy) {
         Write-Host "ERROR: no virtualenv found at .venv\" -ForegroundColor Red
         Write-Host "Run this first:  .\lab.ps1 setup"
         exit 1
     }
+    return $vpy
 }
 
-function Py { Need-Venv; & $VenvPy @args; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } }
-
-function Locust {
-    Need-Venv
-    & $VenvPy -m locust @args
+function Py {
+    $vpy = Need-Venv
+    & $vpy @args
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
+
+function Locust {
+    $vpy = Need-Venv
+    & $vpy -m locust @args
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+
+function Run-SysPy {
+    param([string[]]$PyArgs)
+    $sysPy = Get-SysPython
+    if ($sysPy -eq 'py') {
+        & py -3.12 @PyArgs
+    } else {
+        & $sysPy @PyArgs
+    }
+}
+
+$Port = if ($env:LAB_SERVER_PORT) { $env:LAB_SERVER_PORT } else { '8080' }
 
 switch ($Target) {
     'help' {
         Write-Host ""
-        Write-Host "Day 20 lab — Windows runner" -ForegroundColor Cyan
+        Write-Host "Day 20 lab -- Windows runner" -ForegroundColor Cyan
         Write-Host "Usage:  .\lab.ps1 <target>"
         Write-Host ""
         Write-Host "Setup (00)"
@@ -84,12 +123,28 @@ switch ($Target) {
         Write-Host ""
     }
 
-    'probe'   { & $SysPy labs\00-setup\detect-hardware.py }
+    'probe'   { Run-SysPy @('labs\00-setup\detect-hardware.py') }
     'setup'   {
-        if (-not (Test-Path '.venv')) { & $SysPy -m venv .venv }
-        & $VenvPy -m pip install --upgrade pip wheel | Out-Null
-        & $VenvPy -m pip install -r requirements.txt
-        Py labs\00-setup\setup.py
+        $vpy = Get-VenvPython
+        if (-not $vpy) {
+            Write-Host "==> Creating virtual environment (.venv)..." -ForegroundColor Cyan
+            $sys = Get-SysPython
+            if ($sys -eq 'py') {
+                & py -3.12 -m venv (Join-Path $PSScriptRoot '.venv')
+            } else {
+                & $sys -m venv (Join-Path $PSScriptRoot '.venv')
+            }
+            $vpy = Get-VenvPython
+        }
+        if (-not $vpy) {
+            Write-Host "ERROR: Failed to create virtual environment." -ForegroundColor Red
+            exit 1
+        }
+        Write-Host "==> Upgrading pip and installing requirements..." -ForegroundColor Cyan
+        & $vpy -m pip install --upgrade pip wheel
+        & $vpy -m pip install -r (Join-Path $PSScriptRoot 'requirements.txt')
+        Write-Host "==> Running setup script (downloading runtime and model)..." -ForegroundColor Cyan
+        & $vpy (Join-Path $PSScriptRoot 'labs\00-setup\setup.py')
     }
     'runtime' { Py labs\00-setup\fetch-runtime.py --force }
 
@@ -107,7 +162,7 @@ switch ($Target) {
     'pipeline' { Py labs\03-integrate\pipeline.py @Rest }
 
     # verify must work with system Python too: the grader has no .venv.
-    'verify' { & $SysPy scripts\verify.py; exit $LASTEXITCODE }
+    'verify' { Run-SysPy @('scripts\verify.py'); exit $LASTEXITCODE }
 
     'sweep-quant' { Py bonus\sweeps\quant-sweep.py @Rest }
     'sweep-ctx'   { Py bonus\sweeps\ctx-len-sweep.py @Rest }
