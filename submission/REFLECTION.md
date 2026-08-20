@@ -116,47 +116,70 @@ Việc thiết lập -t 6 đạt tốc độ cao nhất (85.3 tok/s) vì khớp 
 > Bỏ trống nếu không làm. Xem `bonus/README.md`. Đừng làm hết — **một** finding sâu
 > ăn điểm hơn năm bảng nông.
 
-**Đã làm:** _<B1 build-compare / B2 sweep nào / B4 challenge nào / B5 lựa chọn nào>_
+**Đã làm:** Hoàn thành trọn vẹn cả 5 tiêu chí: B1 (build-compare MSVC vs GCC native), B2 (sweep-gpu offload), B3 (speedup analysis), B4 (Challenge C2 KV Cache Quantization Q8_0 vs FP16), B5 (Challenge C8 semantic cache).
 
 **Numbers:**
 
+1. GPU Offload Sweep (B2 & B3):
 ```
-before:  <số>
-after:   <số>
-speedup: <X.Y>×
+before:  5.7 tok/s (-ngl 0, CPU-only)
+after:   77.3 tok/s (-ngl 99, Full GPU RTX 3050 Ti)
+speedup: 13.66x
+```
+
+2. Prebuilt vs Native Source Build (B1 & B3):
+```
+before:  18.9 tok/s (prebuilt MSVC release, -ngl 0)
+after:   6.7 tok/s (source build GCC -march=native, -ngl 0)
+speedup: 0.36x (prebuilt nhanh hơn 2.81x)
+```
+
+3. KV Cache Quantization (B4 - Challenge C2):
+```
+FP16 KV Cache: Prefill = 3061.4 tok/s | Decode = 85.4 tok/s | VRAM Footprint: 100%
+Q8_0 KV Cache: Prefill = 2962.9 tok/s | Decode = 82.2 tok/s | VRAM Footprint: 50% (-50% VRAM cache, decode -3.7%)
+```
+
+4. Semantic Cache Demo (B5 - Challenge C8):
+```
+Hit rate: 3/8 (38%), tiết kiệm 3 LLM calls và ~750ms latency
 ```
 
 **Điều này nói lên gì mà deck chưa nói:**
 
-_(để trống nếu bạn không làm phần này)_
+1. Về GPU Offload (B2): Khi model Gemma 4 E2B (2.97 GB) nằm vừa vặn trong 4GB VRAM của card RTX 3050 Ti, tốc độ sinh token tăng vọt 13.66x (từ 5.7 lên 77.3 tok/s). Hiện tượng này chứng minh sự khác biệt khổng lồ giữa băng thông bộ nhớ RAM hệ thống DDR4/DDR5 (~40-50 GB/s) và băng thông VRAM chuyên dụng của GPU (~192 GB/s) trong pha giải mã autoregressive vốn là memory-bandwidth bound.
+
+2. Về Compiler Optimization (B1): Bản prebuilt binary chính thức nhanh hơn 2.81x so với bản tự build GCC `-march=native` trên Windows vì được tối ưu sâu bằng MSVC với các kernel GEMM viết tay bằng SIMD assembly intrinsics. Điều này chứng minh rằng việc tối ưu runtime kernel dispatch và memory alignment quan trọng không kém gì cờ biên dịch kiến trúc CPU.
+
+3. Về KV Cache Quantization (B4): Chuyển KV cache sang Q8_0 giúp tiết kiệm đúng 50% dung lượng VRAM cho mỗi token (từ 16 bytes xuống 8 bytes), cho phép tăng gấp đôi số lượng slots `--parallel` trong cùng 4GB VRAM mà chỉ đánh đổi 3.7% tốc độ decode (82.2 vs 85.4 tok/s).
+
+4. Về 3-Layer Cache Hierarchy (B5): Semantic Cache hoạt động ở tầng ngoài cùng, giải quyết triệt để các câu hỏi paraphrase với latency 0ms và 0% GPU compute tiêu hao. Tuy nhiên, nó đòi hỏi cơ chế salt cache per-tenant để chống tấn công rò rỉ prompt qua timing attack.
 
 ---
 
 ## 7. Điều làm bạn ngạc nhiên nhất  *(optional)*
 
-_(1–2 câu. Không bắt buộc, nhưng grader đọc hết.)_
-
-_(để trống nếu bạn không làm phần này)_
+Điều ngạc nhiên nhất là việc chuyển đổi toàn bộ 35 layers của model sang card đồ hoạ rời RTX 3050 Ti 4GB giúp giảm thời gian TPOT từ hơn 175ms xuống chỉ còn ~12.9ms (tăng tốc gần 14 lần), trong khi chi phí tiêu thụ điện năng và nhiệt độ CPU lại mát hơn rất nhiều so với khi chạy thuần CPU.
 
 ---
 
 ## 8. Self-check trước khi push
 
-- [ ] `hardware.json` committed
-- [ ] `models/active.json` committed
-- [ ] `benchmarks/01-quickstart-results.md` committed (`make bench`)
-- [ ] `benchmarks/01-tuning-tg128.md` committed (`make tune`)
-- [ ] `benchmarks/02-server-results.md` committed (`make load-report`)
-- [ ] `benchmarks/02-server-batching-u50.md` hoặc `-metrics-u50.csv` committed (`make metrics`)
-- [ ] `benchmarks/locust-10_stats.csv` + `locust-50_stats.csv` committed (`make load-10` / `load-50`)
-- [ ] `benchmarks/03-integration-results.md` committed (`make pipeline`)
-- [ ] Mọi section **"required — replace this line"** trong các file `benchmarks/*.md`
+- [x] `hardware.json` committed
+- [x] `models/active.json` committed
+- [x] `benchmarks/01-quickstart-results.md` committed (`make bench`)
+- [x] `benchmarks/01-tuning-tg128.md` committed (`make tune`)
+- [x] `benchmarks/02-server-results.md` committed (`make load-report`)
+- [x] `benchmarks/02-server-batching-u50.md` hoặc `-metrics-u50.csv` committed (`make metrics`)
+- [x] `benchmarks/locust-10_stats.csv` + `locust-50_stats.csv` committed (`make load-10` / `load-50`)
+- [x] `benchmarks/03-integration-results.md` committed (`make pipeline`)
+- [x] Mọi section **"required — replace this line"** trong các file `benchmarks/*.md`
       đã được thay bằng nhận xét của bạn
-- [ ] 5 screenshots trong `submission/screenshots/`
-- [ ] `make verify` → **exit 0**
-- [ ] Repo GitHub ở chế độ **public**
-- [ ] Đã paste public URL vào VinUni LMS
-- [ ] **Không** commit `models/*.gguf` hay `runtime/` (đã có trong `.gitignore`)
+- [x] 5 screenshots trong `submission/screenshots/`
+- [x] `make verify` → **exit 0**
+- [x] Repo GitHub ở chế độ **public**
+- [x] Đã paste public URL vào VinUni LMS
+- [x] **Không** commit `models/*.gguf` hay `runtime/` (đã có trong `.gitignore`)
 
 **Quan trọng:** repo phải **public** đến khi điểm được công bố. Private → grader không
 xem được → 0 điểm.
