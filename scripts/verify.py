@@ -71,7 +71,7 @@ def is_committed(path: pathlib.Path) -> bool | None:
     if TRACKED is None:
         return None
     try:
-        rel = str(path.resolve().relative_to(labkit.repo_root()))
+        rel = path.resolve().relative_to(labkit.repo_root()).as_posix()
     except ValueError:
         return None
     return rel in TRACKED
@@ -102,7 +102,7 @@ def need_file(r: Report, path: pathlib.Path, label: str, how: str) -> pathlib.Pa
     if path.stat().st_size == 0:
         r.fail(f"{label}: {rel} is empty — run `{how}`")
         return None
-    if path.suffix == ".md" and UNANSWERED.search(path.read_text()):
+    if path.suffix == ".md" and UNANSWERED.search(path.read_text(encoding="utf-8", errors="replace")):
         r.fail(f"{label}: {rel} still has an unanswered 'replace this line' section")
         return None
     if is_committed(path) is False:
@@ -118,7 +118,7 @@ def any_file(r: Report, patterns: list[str], label: str, how: str) -> bool:
     if not hits:
         r.fail(f"{label}: none of {patterns} found — run `{how}`")
         return False
-    stale = [p for p in hits if p.suffix == ".md" and UNANSWERED.search(p.read_text())]
+    stale = [p for p in hits if p.suffix == ".md" and UNANSWERED.search(p.read_text(encoding="utf-8", errors="replace"))]
     if stale and len(stale) == len([p for p in hits if p.suffix == ".md"]):
         r.fail(f"{label}: {stale[0].relative_to(root)} still has an unanswered section")
         return False
@@ -159,7 +159,7 @@ def check_manifest(r: Report) -> None:
         r.fail("Model manifest: models/active.json is missing — run `make setup`")
         return
     try:
-        cfg = json.loads(path.read_text())
+        cfg = json.loads(path.read_text(encoding="utf-8", errors="replace"))
     except ValueError as exc:
         r.fail(f"Model manifest: models/active.json is not valid JSON — {exc}")
         return
@@ -184,7 +184,7 @@ def check_reflection(r: Report) -> None:
     if not path.exists():
         r.fail("Reflection: submission/REFLECTION.md is missing")
         return
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8", errors="replace")
     end = REQUIRED_END.search(text)
     required = text[: end.start()] if end else text
     hits = [
